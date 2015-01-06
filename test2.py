@@ -3,3 +3,5 @@
 TDLOG Projet: Algorithmic Trading
 """
 #test 2
+
+#test 3
