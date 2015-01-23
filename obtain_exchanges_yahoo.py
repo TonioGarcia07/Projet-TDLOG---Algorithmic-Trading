@@ -15,7 +15,23 @@ def obtain_exchanges_yahoo():
     # On utilise xml.html pour télecharger la liste
     page = lxml.html.parse('http://finance.yahoo.com/exchanges')
     symbolslist = page.xpath('//table[2]/tr/td/table[1]/tr')[1:]
+    
+    # Lecture de symbolslist pour obtenir la liste exchanges
+    # Convention: 'N/A'=''
     exchanges = []
+    for exchange in symbolslist:
+        tds = exchange.getchildren()
+        if tds[2].text=='N/A':
+            suffix = ''
+        else:
+            suffix = tds[2].text
+            
+        sd = {'exchange': tds[1].text,
+              'suffix':suffix,
+              'country':tds[0].text,
+              'delay':tds[3].text}
+        exchanges.append((sd['exchange'], sd['suffix'], sd['country'], sd['delay'] ))
+
     return exchanges 
             
 if __name__=="__main__":
