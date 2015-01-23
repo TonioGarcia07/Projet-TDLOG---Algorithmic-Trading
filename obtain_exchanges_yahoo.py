@@ -61,13 +61,33 @@ def insert_exchanges_db(exchanges):
         if con:
             con.close()
 
+def print_exchanges_db():
+    try:
+        # Connexion a la base de données
+        con = sqlite3.connect('test.db')
+        
+        # Using the sql connection, faire une request pour obtir le tableau exchanges
+        with con:
+            cur = con.cursor()
+            cur.execute("SELECT * FROM exchanges")
+            data = cur.fetchall()
+            
+            for row in data:
+                print(row)
+                
+    except sqlite3.Error, e:
+        if con:
+            con.rollback()
+            print("There was a probem with the Database: {}".format(e))
+            
+    finally:
+        if con:
+            con.close()
             
 if __name__=="__main__":
-    exchanges = obtain_exchanges_yahoo()
-    insert_exchanges_db(exchanges)
-
-    
-
+    #exchanges = obtain_exchanges_yahoo()
+    #insert_exchanges_db(exchanges)
+    print_exchanges_db()
 
 
 
