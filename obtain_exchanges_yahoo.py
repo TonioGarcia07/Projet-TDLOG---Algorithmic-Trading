@@ -36,20 +36,30 @@ def obtain_exchanges_yahoo():
 
 def insert_exchanges_db(exchanges):
     """Insertion des exchanges dans la base de donnnees exchanges."""
-    # Connexion a la base de données
-    con = sqlite3.connect('test.db')
+    try:
+        # Connexion a la base de données
+        con = sqlite3.connect('test.db')
         
-    # Creation des strings à inserter
-    column_str = "(exchange_name, suffix, country, delay)"
-    insert_str = ("(" + "?," * 3 + "?)" )
-    final_str = "INSERT INTO exchanges {} VALUES {}".format(column_str,insert_str)
+        # Creation des strings à inserter
+        column_str = "(exchange_name, suffix, country, delay)"
+        insert_str = ("(" + "?," * 3 + "?)" )
+        final_str = "INSERT INTO exchanges {} VALUES {}".format(column_str,insert_str)
         
-    # Using the sql connection, faire un INSERT INTO pour chaque exchange
-    with con:
-        cur = con.cursor()
-        cur.execute("DELETE FROM exchanges")
-        cur.executemany(final_str, exchanges)
-        con.commit()
+        # Using the sql connection, faire un INSERT INTO pour chaque exchange
+        with con:
+            cur = con.cursor()
+            cur.execute("DELETE FROM exchanges")
+            cur.executemany(final_str, exchanges)
+            con.commit()
+            
+    except sqlite3.Error, e:
+        if con:
+            con.rollback()
+            print("There was a probem with the Database: {}".format(e))
+            
+    finally:
+        if con:
+            con.close()
 
             
 if __name__=="__main__":
