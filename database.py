@@ -70,8 +70,7 @@ class Database:
         except sqlite3.Error as e:
             raise ErrorConnexion(self.base, table, e)
         finally:
-            self.deconnexion()
-          
+            self.deconnexion()       
     
 #    def toDataframe(self):
 #        #para pasar a data frame o vector auto
@@ -120,12 +119,76 @@ class DatabaseExchanges(Database):
     
     def affichage(self):
         self.printing(self.table)
+
+class DatabaseSymbols(Database):
+    def __init__(self, nombase):
+        super().__init__(nombase)
+        self.table = 'symbols'
+        self.symbols = []
+    
+    def new(self):
+        command_str =("""CREATE TABLE symbols (
+                       symbol_id INTEGER PRIMARY KEY,
+                       exchange_name int NULL,
+                       symbol varchar(32) NOT NULL,
+                       instrument varchar(64) NOT NULL,
+                       name varchar(255) NULL,
+                       sector varchar(255) NULL,
+                       currency varchar(32) NULL);""")
+        self.creation(self.table ,command_str)
+    
+    def obtain_SNP500(self):
+        # Use libxml to download the list of S&P500 companies and obtain the symbol table
+        page = lxml.html.parse('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+        symbolslist = page.xpath('//table[1]/tr')[1:]
+        number_stocks=502
+        for symbol in symbolslist:
+            tds = symbol.getchildren()   
+            sd = {'symbol': tds[0].getchildren()[0].text,
+                  'name':tds[1].getchildren()[0].text,
+                  'sector':tds[3].text}
+            # Create a tuple (for the DB format) and append to the grand list
+            self.symbols.append(('S & P Indices', sd['symbol'],'stock', sd['name'],sd['sector'],'USD'))
+            number_stocks -= 1
+            if number_stocks == 0 : break
+    
+    def obtain_CAC40(self):
+        # Use libxml to download the list of S&P500 companies and obtain the symbol table
+        page = lxml.html.parse('http://en.wikipedia.org/wiki/CAC_40')
+        symbolslist = page.xpath('//table[2]/tr')[1:]
+        for symbol in symbolslist:
+            tds = symbol.getchildren()   
+            sd = {'symbol': tds[0].text,
+                  'name':tds[1].getchildren()[0].text,
+                  'sector':tds[2].text}
+            # Create a tuple (for the DB format) and append to the grand list
+            self.symbols.append(('Paris Stock Exchange', sd['symbol'],'stock', sd['name'],sd['sector'],'EUR'))      
+    
+    def yahoo_scan(self):
+        self.obtain_SNP500()
+        self.obtain_CAC40()
         
+    def remplissage(self):
+        command_str = "(exchange_name,symbol, instrument, name, sector, currency)"
+        self.yahoo_scan()
+        self.insert(self.table ,command_str,self.symbols)
+    
+    def affichage(self):
+        self.printing(self.table)
+
+
+
+      
 if __name__=="__main__":
-    Exchange = DatabaseExchanges('test.db')
-    Exchange.new()
-    Exchange.remplissage()
-    Exchange.affichage()
+#    Exchange = DatabaseExchanges('test.db')
+#    Exchange.new()
+#    Exchange.remplissage()
+#    Exchange.affichage()
+    Symbols = DatabaseSymbols('test.db')
+    Symbols.new()
+    Symbols.remplissage()
+    Symbols.affichage()
+
     
 
 
