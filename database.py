@@ -38,7 +38,7 @@ class Database:
             self.dropping(table)
             self.cur.executescript(command_str)
             self.con.commit()
-        except e:
+        except sqlite3.Error as e:
             if self.con:
                 self.con.rollback()
                 raise ErrorConnexion(self.base, table, e)
@@ -53,7 +53,7 @@ class Database:
             self.cur.execute("DELETE FROM "+ table)
             self.cur.executemany(final_str, data)
             self.con.commit()
-        except e:
+        except sqlite3.Error as e:
             if self.con:
                 self.con.rollback()
                 raise ErrorConnexion(self.base, table, e)
@@ -67,7 +67,7 @@ class Database:
             data = self.cur.fetchall()
             for line in data:
                 print(line)
-        except e:
+        except sqlite3.Error as e:
             raise ErrorConnexion(self.base, table, e)
         finally:
             self.deconnexion()
