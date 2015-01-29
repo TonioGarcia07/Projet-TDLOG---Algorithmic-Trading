@@ -8,7 +8,7 @@ import sqlite3
 import lxml.html
 
 class ErrorConnexion(Exception):
-    def __init__(self, base, table, msg):
+    def __init__(self, base, msg, table= 'Not specified' ):
         self.base = base
         self.table = table
         self.message = msg    
@@ -41,7 +41,7 @@ class Database:
         except sqlite3.Error as e:
             if self.con:
                 self.con.rollback()
-                raise ErrorConnexion(self.base, table, e)
+                raise ErrorConnexion(self.base, e , table)
         finally:
             self.deconnexion()
     
@@ -56,7 +56,7 @@ class Database:
         except sqlite3.Error as e:
             if self.con:
                 self.con.rollback()
-                raise ErrorConnexion(self.base, table, e)
+                raise ErrorConnexion(self.base, e, table)
         finally:
             self.deconnexion()
             
@@ -68,9 +68,25 @@ class Database:
             for line in data:
                 print(line)
         except sqlite3.Error as e:
-            raise ErrorConnexion(self.base, table, e)
+            raise ErrorConnexion(self.base, e, table)
         finally:
-            self.deconnexion()       
+            self.deconnexion()
+    
+    def picking(self,command_str):
+        try:   
+            self.connexion()
+            self.cur.execute(command_str)
+            data = self.cur.fetchall() 
+        except sqlite3.Error as e:
+            if self.con:
+                self.con.rollback()
+                raise ErrorConnexion(self.base, e)
+        finally:
+            self.deconnexion()
+            return data
+        
+
+        
     
 #    def toDataframe(self):
 #        #para pasar a data frame o vector auto
@@ -176,18 +192,33 @@ class DatabaseSymbols(Database):
     def affichage(self):
         self.printing(self.table)
 
-
+class DatabaseDailyPrices(Database):
+    def __init__(self, nombase):
+        super().__init__(nombase)
+        self.table = 'daily_prices'
+        self.tickers = []
+    
+    def obtain_tickers(self):
+        command_str = ("SELECT S.symbol_id, S.symbol, E.suffix FROM symbols S JOIN exchanges E ON S.exchange_name = E.exchange_name ")
+        self.tickers = self.picking(command_str)
+        #print(data)
+        #self.tickers = [(d[0],d[1],d[2]) for d in data]
 
       
 if __name__=="__main__":
-#    Exchange = DatabaseExchanges('test.db')
-#    Exchange.new()
-#    Exchange.remplissage()
-#    Exchange.affichage()
+    Exchange = DatabaseExchanges('test.db')
+    Exchange.new()
+    Exchange.remplissage()
+    Exchange.affichage()
     Symbols = DatabaseSymbols('test.db')
     Symbols.new()
     Symbols.remplissage()
     Symbols.affichage()
+    DailyPrices = DatabaseDailyPrices('test.db')
+    prices = DailyPrices.obtain_tickers()
+    print(DailyPrices.tickers)
+    
+    
 
     
 
