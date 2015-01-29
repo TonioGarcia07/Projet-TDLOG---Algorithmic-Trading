@@ -17,8 +17,8 @@ class ErrorConnexion(Exception):
         return ("Il y a un erreur avec la base de données: {} le tableau: {} problème: {}".format(self.base, self.table, self.message)) 
     
 class Database:
-    def __init__(self, base):
-        self.base = base
+    def __init__(self, nombase):
+        self.base = nombase
     
     def connexion(self):
         self.con = sqlite3.connect(self.base)
@@ -38,7 +38,7 @@ class Database:
             self.dropping(table)
             self.cur.executescript(command_str)
             self.con.commit()
-        except sqlite3.Error, e:
+        except e:
             if self.con:
                 self.con.rollback()
                 raise ErrorConnexion(self.base, table, e)
@@ -53,47 +53,34 @@ class Database:
             self.cur.execute("DELETE FROM "+ table)
             self.cur.executemany(final_str, data)
             self.con.commit()
-        except sqlite3.Error, e:
+        except e:
             if self.con:
                 self.con.rollback()
                 raise ErrorConnexion(self.base, table, e)
         finally:
             self.deconnexion()
             
-    def __str__(self):
-        #print
+    def printing(self, table):
+        try:
+            self.connexion()
+            self.cur.execute("SELECT * FROM "+ table)
+            data = self.cur.fetchall()
+            for line in data:
+                print(line)
+        except e:
+            raise ErrorConnexion(self.base, table, e)
+        finally:
+            self.deconnexion()
+          
     
-    def print_exchanges_db():
-    try:
-        # Connexion a la base de données
-        con = sqlite3.connect('test.db')
-        
-        # Using the sql connection, faire une request pour obtir le tableau exchanges
-        with con:
-            cur = con.cursor()
-            cur.execute("SELECT * FROM exchanges")
-            data = cur.fetchall()
-            
-            for row in data:
-                print(row)
-                
-    except sqlite3.Error, e:
-        if con:
-            con.rollback()
-            print("There was a probem with the Database: {}".format(e))
-            
-    finally:
-        if con:
-            con.close()
-            
-    
-    def toDataframe(self):
-        #para pasar a data frame o vector auto
+#    def toDataframe(self):
+#        #para pasar a data frame o vector auto
         
         
 class DatabaseExchanges(Database):
-    def __init__(self, base):
-        super().__init__(base)
+    def __init__(self, nombase):
+        super().__init__(nombase)
+        self.table = 'exchanges'
     
     def new(self):
         command_str =("""CREATE TABLE exchanges (
@@ -102,7 +89,7 @@ class DatabaseExchanges(Database):
                          suffix varchar(32) NULL,
                          country varchar(64) NOT NULL,
                          delay varchar(64) NULL);""")
-        self.creation('exchanges',command_str)
+        self.creation(self.table ,command_str)
     
     def yahoo_scan(self):
         """ Telechargement de la information de Yahoo sur les exchanges """
@@ -129,8 +116,17 @@ class DatabaseExchanges(Database):
     def remplissage(self):
         command_str = "(exchange_name, suffix, country, delay)"
         data = self.yahoo_scan()
-        self.insert('exchanges',command_str,data)
+        self.insert(self.table ,command_str,data)
+    
+    def affichage(self):
+        self.printing(self.table)
         
+if __name__=="__main__":
+    Exchange = DatabaseExchanges('test.db')
+    Exchange.new()
+    Exchange.remplissage()
+    Exchange.affichage()
+    
 
 
 
