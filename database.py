@@ -8,6 +8,7 @@ import lxml.html
 from datetime import datetime
 from pandas.io.data import DataReader
 from urllib.request import urlopen
+import pandas as pd
 
 
 class ErrorDatabaseConnexion(Exception):
@@ -97,12 +98,19 @@ class Database:
         finally:
             self.deconnexion()
             return data
-        
-
-        
     
-#    def toDataframe(self):
-#        #para pasar a data frame o vector auto
+    def toDataframe(self,table,columns_str,ticker):
+        try:
+            self.connexion()
+            cotation_ticker_df = pd.read_sql("SELECT {} FROM {} WHERE ticker='{}'".format(columns_str,table,ticker), self.con)#,index_col='Date'
+            pd.to_datetime(cotation_ticker_df[ticker]['Date'])
+            cotation_ticker_df[ticker].set_index('Date', inplace=True) 
+        except sqlite3.Error as e:
+            raise ErrorDatabaseConnexion(self.base, e, table)
+        finally:
+            self.deconnexion()
+            return cotation_ticker_df
+        
         
         
 class DatabaseExchanges(Database):
