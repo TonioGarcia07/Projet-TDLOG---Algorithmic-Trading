@@ -1,5 +1,4 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
+
 """
 Class Database: cette classe a pour but la création, remplissage 
 et affichage des tableaux de la base de données generée
@@ -8,6 +7,7 @@ import sqlite3
 import lxml.html
 from datetime import datetime
 from pandas.io.data import DataReader
+from urllib.request import urlopen
 
 
 class ErrorDatabaseConnexion(Exception):
@@ -58,12 +58,12 @@ class Database:
         finally:
             self.deconnexion()
     
-    def insert(self, table, command_str, data):
+    def insert(self, table, command_str, data, delete='yes'):
         insert_str = ("(" + "?," * (len(command_str.split(','))-1) + "?)" )
-        final_str = "INSERT INTO {} {} VALUES {}".format(table,command_str,insert_str)
+        final_str = "INSERT OR IGNORE INTO {} {} VALUES {}".format(table,command_str,insert_str)
         try:
             self.connexion()
-            self.cur.execute("DELETE FROM "+ table)
+            if delete=='yes':self.cur.execute("DELETE FROM "+ table)
             self.cur.executemany(final_str, data)
             self.con.commit()
         except sqlite3.Error as e:
@@ -191,10 +191,12 @@ class DatabaseSymbols(Database):
                   'name':tds[1].getchildren()[0].text,
                   'sector':tds[2].text}
             # Create a tuple (for the DB format) and append to the grand list
-            self.symbols.append(('Paris Stock Exchange', sd['symbol'],'stock', sd['name'],sd['sector'],'EUR'))      
+            if sd['symbol']=='PP' or sd['symbol']=='SOLB' :pass
+            else: self.symbols.append(('Paris Stock Exchange', sd['symbol'],'stock', sd['name'],sd['sector'],'EUR'))      
     
+        
     def yahoo_scan(self):
-        self.obtain_SNP500()
+        #self.obtain_SNP500()
         self.obtain_CAC40()
         
     def remplissage(self):
@@ -232,36 +234,116 @@ class DatabaseDailyPrices(Database):
     def get_prices_df(self,ticker, date_start, date_end):
         try:
             cotation_data = DataReader(ticker,  "yahoo", date_start, date_end)
-            return cotation_data
         except Exception as e:
             raise ErrorInternetConnexion('yahoo DataReader',  e)
+        return cotation_data
     
-    def get_prices(self,date_start=datetime(2009,1,1), date_end=datetime.today()):
+    def get_prices(self,date_start=datetime(2009,1,1), date_end=datetime(2014,12,1)):
         #multiprocessing
         for (symbol_id, symbol ,suffix) in self.tickers:
             print(symbol_id,symbol+suffix)
             cotation_data = self.get_prices_df(symbol+suffix, date_start, date_end)
             try:
                 self.connexion()
+                cotation_data['ticker']=symbol+suffix
+                print(cotation_data.tail())
                 cotation_data.to_sql('daily_prices',self.con,if_exists='append')
             except sqlite3.Error as e:
                 raise ErrorDatabaseConnexion(self.base, e, self.table)
             finally:
                 self.deconnexion()
+                
+    def update_prices(self,date_start=datetime(2014,12,24), date_end=datetime.today()):
+        for (symbol_id, symbol ,suffix) in self.tickers:
+            print(symbol_id,symbol+suffix)
+            cotation_df = self.get_prices_df(symbol+suffix, date_start, date_end)
+            cotation_df['ticker']=symbol+suffix
+            cotation_df['Volume'] = cotation_df['Volume'].astype(float)
+            cotation_list=cotation_df.to_records()
+            command_str = "(Date , Open, High, Low, Close, Volume, 'Adj Close', ticker)"
+            self.insert( self.table, command_str, cotation_list, 'no')
+  
+    def affichage(self):
+        self.printing(self.table)
 
+class DatabaseIntradayPrices(Database):
+    def __init__(self, nombase,table = 'intraday_prices'):
+        super().__init__(nombase)
+        self.table=table
+        self.tickers = []
+    
+    def new(self):
+        command_str =("""CREATE TABLE {} (
+                       ticker varchar(32) NOT NULL,
+                       Date_timestamp float(4) NULL,
+                       Date datetime NOT NULL,
+                       Open decimal(19,4) NULL,
+                       High decimal(19,4) NULL,
+                       Low decimal(19,4) NULL,
+                       Close decimal(19,4) NULL,
+                       Volume float(1) NULL,
+                       PRIMARY KEY (ticker,Date_timestamp) ON CONFLICT IGNORE);""".format(self.table))
+                       
+        self.creation(self.table ,command_str)
+    
+    def obtain_tickers(self):
+        command_str = ("SELECT S.symbol_id, S.symbol, E.suffix FROM symbols S JOIN exchanges E ON S.exchange_name = E.exchange_name ")
+        self.tickers = self.picking(command_str)
+        
+    def get_prices_list(self,ticker,days):
+        yahoo_url = "http://chartapi.finance.yahoo.com/instrument/1.0/{}/chartdata;type=quote;range={}d/csv".format(ticker,days)
+        try:
+            yf_data = urlopen(yahoo_url).readlines()[32:]
+            cotation_data = []
+            print(yf_data)
+            for line in yf_data:
+                line = line.decode('utf-8')
+                p = line.strip().split(',')
+                print(p)
+                cotation_data.append((ticker,p[0],datetime.fromtimestamp(int(p[0])).strftime('%Y-%m-%d %H:%M'),p[4],p[2],p[3],p[1],p[5]))
+        except Exception as e:
+            raise ErrorInternetConnexion('yahoo acces',  e)
+        return cotation_data
+    
+    def get_prices(self,days=100):
+        #multiprocessing
+        for (symbol_id, symbol ,suffix) in self.tickers:
+            print(symbol_id,symbol+suffix)
+            cotation_list = self.get_prices_list(symbol+suffix,days)
+            command_str = "(ticker,Date_timestamp,Date , Open, High, Low, Close, Volume)"
+            self.insert( self.table, command_str, cotation_list, 'no')
+                
+    def update_prices(self):
+        self.get_prices()
+  
+    def affichage(self):
+        self.printing(self.table)
       
 if __name__=="__main__":
-    Exchange = DatabaseExchanges('test.db')
+    base ='test.db'
+    Exchange = DatabaseExchanges(base)
     Exchange.new()
     Exchange.remplissage()
     Exchange.affichage()
-    Symbols = DatabaseSymbols('test.db')
+    Symbols = DatabaseSymbols(base)
     Symbols.new()
     Symbols.remplissage()
     Symbols.affichage()
-    DailyPrices = DatabaseDailyPrices('test.db')
-    DailyPrices.obtain_tickers()
+    DailyPrices = DatabaseDailyPrices(base)
+    DailyPrices.new()
+    #DailyPrices.obtain_tickers()
+    DailyPrices.tickers=[(1,'BNP','.PA')]
     DailyPrices.get_prices()
+    DailyPrices.affichage()
+    DailyPrices.update_prices()
+    DailyPrices.affichage()
+    IntradayPrices = DatabaseIntradayPrices(base)
+    IntradayPrices.new()
+    #Intraday.obtain_tickers()
+    IntradayPrices.tickers=[(1,'BNP','.PA')]
+    IntradayPrices.get_prices()
+    IntradayPrices.affichage()
+
     
     
     
