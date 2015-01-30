@@ -6,8 +6,11 @@ et affichage des tableaux de la base de données generée
 """
 import sqlite3
 import lxml.html
+from datetime import datetime
+from pandas.io.data import DataReader
 
-class ErrorConnexion(Exception):
+
+class ErrorDatabaseConnexion(Exception):
     def __init__(self, base, msg, table= 'Not specified' ):
         self.base = base
         self.table = table
@@ -15,6 +18,16 @@ class ErrorConnexion(Exception):
     
     def __str__(self):
         return ("Il y a un erreur avec la base de données: {} le tableau: {} problème: {}".format(self.base, self.table, self.message)) 
+
+class ErrorInternetConnexion(Exception):
+    def __init__(self, path, msg):
+        self.base = path
+        self.message = msg    
+    
+    def __str__(self):
+        return ("Il y a un erreur avec l'accés à: {} problème: {}".format(self.path, self.message)) 
+
+
     
 class Database:
     def __init__(self, nombase):
@@ -41,7 +54,7 @@ class Database:
         except sqlite3.Error as e:
             if self.con:
                 self.con.rollback()
-                raise ErrorConnexion(self.base, e , table)
+                raise ErrorDatabaseConnexion(self.base, e , table)
         finally:
             self.deconnexion()
     
@@ -56,7 +69,7 @@ class Database:
         except sqlite3.Error as e:
             if self.con:
                 self.con.rollback()
-                raise ErrorConnexion(self.base, e, table)
+                raise ErrorDatabaseConnexion(self.base, e, table)
         finally:
             self.deconnexion()
             
@@ -68,7 +81,7 @@ class Database:
             for line in data:
                 print(line)
         except sqlite3.Error as e:
-            raise ErrorConnexion(self.base, e, table)
+            raise ErrorDatabaseConnexion(self.base, e, table)
         finally:
             self.deconnexion()
     
@@ -80,7 +93,7 @@ class Database:
         except sqlite3.Error as e:
             if self.con:
                 self.con.rollback()
-                raise ErrorConnexion(self.base, e)
+                raise ErrorDatabaseConnexion(self.base, e)
         finally:
             self.deconnexion()
             return data
@@ -198,11 +211,43 @@ class DatabaseDailyPrices(Database):
         self.table = 'daily_prices'
         self.tickers = []
     
+    def new(self):
+        command_str =("""CREATE TABLE daily_prices (
+                       ticker varchar(32) NOT NULL,
+                       Date datetime NOT NULL,
+                       Open decimal(19,4) NULL,
+                       High decimal(19,4) NULL,
+                       Low decimal(19,4) NULL,
+                       Close decimal(19,4) NULL,
+                       Volume float(1) NULL,
+                       'Adj Close' decimal(19,4) NULL,
+                       PRIMARY KEY(ticker,Date) ON CONFLICT IGNORE);""")
+                       
+        self.creation(self.table ,command_str)
+    
     def obtain_tickers(self):
         command_str = ("SELECT S.symbol_id, S.symbol, E.suffix FROM symbols S JOIN exchanges E ON S.exchange_name = E.exchange_name ")
         self.tickers = self.picking(command_str)
-        #print(data)
-        #self.tickers = [(d[0],d[1],d[2]) for d in data]
+        
+    def get_prices_df(self,ticker, date_start, date_end):
+        try:
+            cotation_data = DataReader(ticker,  "yahoo", date_start, date_end)
+            return cotation_data
+        except Exception as e:
+            raise ErrorInternetConnexion('yahoo DataReader',  e)
+    
+    def get_prices(self,date_start=datetime(2009,1,1), date_end=datetime.today()):
+        #multiprocessing
+        for (symbol_id, symbol ,suffix) in self.tickers:
+            print(symbol_id,symbol+suffix)
+            cotation_data = self.get_prices_df(symbol+suffix, date_start, date_end)
+            try:
+                self.connexion()
+                cotation_data.to_sql('daily_prices',self.con,if_exists='append')
+            except sqlite3.Error as e:
+                raise ErrorDatabaseConnexion(self.base, e, self.table)
+            finally:
+                self.deconnexion()
 
       
 if __name__=="__main__":
@@ -215,8 +260,9 @@ if __name__=="__main__":
     Symbols.remplissage()
     Symbols.affichage()
     DailyPrices = DatabaseDailyPrices('test.db')
-    prices = DailyPrices.obtain_tickers()
-    print(DailyPrices.tickers)
+    DailyPrices.obtain_tickers()
+    DailyPrices.get_prices()
+    
     
     
 
