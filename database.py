@@ -102,9 +102,9 @@ class Database:
     def toDataframe(self,table,columns_str,ticker):
         try:
             self.connexion()
-            cotation_ticker_df = pd.read_sql("SELECT {} FROM {} WHERE ticker='{}'".format(columns_str,table,ticker), self.con)#,index_col='Date'
-            pd.to_datetime(cotation_ticker_df[ticker]['Date'])
-            cotation_ticker_df[ticker].set_index('Date', inplace=True) 
+            cotation_ticker_df = pd.read_sql("""SELECT {} FROM {} WHERE ticker='{}'""".format(columns_str,table,ticker), self.con,index_col='Date')
+            #pd.to_datetime(cotation_ticker_df[ticker]['Date'])
+            #cotation_ticker_df[ticker].set_index('Date', inplace=True)
         except sqlite3.Error as e:
             raise ErrorDatabaseConnexion(self.base, e, table)
         finally:
@@ -117,6 +117,7 @@ class DatabaseExchanges(Database):
     def __init__(self, nombase):
         super().__init__(nombase)
         self.table = 'exchanges'
+        self.columns_str = "exchange_id,exchange_name,suffix,country,delay"
     
     def new(self):
         command_str =("""CREATE TABLE exchanges (
@@ -162,6 +163,7 @@ class DatabaseSymbols(Database):
         super().__init__(nombase)
         self.table = 'symbols'
         self.symbols = []
+        self.columns_str = "symbol_id, exchange_name, symbol,instrument,name,sector,currency"
     
     def new(self):
         command_str =("""CREATE TABLE symbols (
@@ -220,6 +222,7 @@ class DatabaseDailyPrices(Database):
         super().__init__(nombase)
         self.table = 'daily_prices'
         self.tickers = []
+        self.columns_str = """Date, Open, High, Low, Close,  Volume, "Adj Close" """
     
     def new(self):
         command_str =("""CREATE TABLE daily_prices (
@@ -249,12 +252,11 @@ class DatabaseDailyPrices(Database):
     def get_prices(self,date_start=datetime(2009,1,1), date_end=datetime(2014,12,1)):
         #multiprocessing
         for (symbol_id, symbol ,suffix) in self.tickers:
-            print(symbol_id,symbol+suffix)
+            #print(symbol_id,symbol+suffix)
             cotation_data = self.get_prices_df(symbol+suffix, date_start, date_end)
             try:
                 self.connexion()
                 cotation_data['ticker']=symbol+suffix
-                print(cotation_data.tail())
                 cotation_data.to_sql('daily_prices',self.con,if_exists='append')
             except sqlite3.Error as e:
                 raise ErrorDatabaseConnexion(self.base, e, self.table)
@@ -263,7 +265,7 @@ class DatabaseDailyPrices(Database):
                 
     def update_prices(self,date_start=datetime(2014,12,24), date_end=datetime.today()):
         for (symbol_id, symbol ,suffix) in self.tickers:
-            print(symbol_id,symbol+suffix)
+            #print(symbol_id,symbol+suffix)
             cotation_df = self.get_prices_df(symbol+suffix, date_start, date_end)
             cotation_df['ticker']=symbol+suffix
             cotation_df['Volume'] = cotation_df['Volume'].astype(float)
@@ -279,6 +281,7 @@ class DatabaseIntradayPrices(Database):
         super().__init__(nombase)
         self.table=table
         self.tickers = []
+        self.columns_str = "Date, Open, High, Low, Close, Volume"
     
     def new(self):
         command_str =("""CREATE TABLE {} (
@@ -303,11 +306,10 @@ class DatabaseIntradayPrices(Database):
         try:
             yf_data = urlopen(yahoo_url).readlines()[32:]
             cotation_data = []
-            print(yf_data)
             for line in yf_data:
                 line = line.decode('utf-8')
                 p = line.strip().split(',')
-                print(p)
+                print(ticker)
                 cotation_data.append((ticker,p[0],datetime.fromtimestamp(int(p[0])).strftime('%Y-%m-%d %H:%M'),p[4],p[2],p[3],p[1],p[5]))
         except Exception as e:
             raise ErrorInternetConnexion('yahoo acces',  e)
@@ -316,7 +318,7 @@ class DatabaseIntradayPrices(Database):
     def get_prices(self,days=100):
         #multiprocessing
         for (symbol_id, symbol ,suffix) in self.tickers:
-            print(symbol_id,symbol+suffix)
+            #print(symbol_id,symbol+suffix)
             cotation_list = self.get_prices_list(symbol+suffix,days)
             command_str = "(ticker,Date_timestamp,Date , Open, High, Low, Close, Volume)"
             self.insert( self.table, command_str, cotation_list, 'no')
@@ -345,12 +347,12 @@ if __name__=="__main__":
     DailyPrices.affichage()
     DailyPrices.update_prices()
     DailyPrices.affichage()
-    IntradayPrices = DatabaseIntradayPrices(base)
-    IntradayPrices.new()
-    #Intraday.obtain_tickers()
-    IntradayPrices.tickers=[(1,'BNP','.PA')]
-    IntradayPrices.get_prices()
-    IntradayPrices.affichage()
+#    IntradayPrices = DatabaseIntradayPrices(base)
+#    IntradayPrices.new()
+#    #Intraday.obtain_tickers()
+#    IntradayPrices.tickers=[(1,'BNP','.PA')]
+#    IntradayPrices.get_prices()
+#    IntradayPrices.affichage()
 
     
     
