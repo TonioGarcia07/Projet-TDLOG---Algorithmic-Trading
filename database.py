@@ -9,6 +9,8 @@ from datetime import datetime
 from pandas.io.data import DataReader
 from urllib.request import urlopen
 import pandas as pd
+from pandas.lib import Timestamp
+
 
 
 class ErrorDatabaseConnexion(Exception):
@@ -102,14 +104,17 @@ class Database:
     def toDataframe(self,table,columns_str,ticker):
         try:
             self.connexion()
-            cotation_ticker_df = pd.read_sql("""SELECT {} FROM {} WHERE ticker='{}'""".format(columns_str,table,ticker), self.con,index_col='Date')
-            #pd.to_datetime(cotation_ticker_df[ticker]['Date'])
-            #cotation_ticker_df[ticker].set_index('Date', inplace=True)
+            cotation_ticker_df = pd.read_sql("""SELECT {} FROM {} WHERE ticker='{}'""".format(columns_str,table,ticker), self.con) #,index_col='Date')
+            #cotation_ticker_df = cotation_ticker_df.astype(str)
+            #pd.to_datetime(cotation_ticker_df.index, errors= 'raise',format ='%Y-%m-%d %H:%M:%S')
+            cotation_ticker_df.Date = cotation_ticker_df.Date.apply(Timestamp)
+            cotation_ticker_df.set_index('Date', inplace=True)
         except sqlite3.Error as e:
             raise ErrorDatabaseConnexion(self.base, e, table)
         finally:
             self.deconnexion()
             return cotation_ticker_df
+            
         
         
         
@@ -227,7 +232,7 @@ class DatabaseDailyPrices(Database):
     def new(self):
         command_str =("""CREATE TABLE daily_prices (
                        ticker varchar(32) NOT NULL,
-                       Date datetime NOT NULL,
+                       Date date NOT NULL,
                        Open decimal(19,4) NULL,
                        High decimal(19,4) NULL,
                        Low decimal(19,4) NULL,
@@ -254,6 +259,8 @@ class DatabaseDailyPrices(Database):
         for (symbol_id, symbol ,suffix) in self.tickers:
             #print(symbol_id,symbol+suffix)
             cotation_data = self.get_prices_df(symbol+suffix, date_start, date_end)
+            print(cotation_data)
+            print(cotation_data.index)
             try:
                 self.connexion()
                 cotation_data['ticker']=symbol+suffix
@@ -344,9 +351,11 @@ if __name__=="__main__":
     #DailyPrices.obtain_tickers()
     DailyPrices.tickers=[(1,'BNP','.PA')]
     DailyPrices.get_prices()
-    DailyPrices.affichage()
-    DailyPrices.update_prices()
-    DailyPrices.affichage()
+    a = DailyPrices.toDataframe(DailyPrices.table, DailyPrices.columns_str,'BNP.PA')
+    print(a.index)
+    #DailyPrices.affichage()
+    #DailyPrices.update_prices()
+    #DailyPrices.affichage()
 #    IntradayPrices = DatabaseIntradayPrices(base)
 #    IntradayPrices.new()
 #    #Intraday.obtain_tickers()
