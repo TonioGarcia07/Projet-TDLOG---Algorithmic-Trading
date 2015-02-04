@@ -199,9 +199,9 @@ class DatabaseSymbols(Database):
     def obtain_CAC40(self):
         # Use libxml to download the list of S&P500 companies and obtain the symbol table
         page = lxml.html.parse('http://en.wikipedia.org/wiki/CAC_40')
-        symbolslist = page.xpath('//table[2]/tr')[1:]
+        symbolslist = page.xpath('//table[3]/tr')[1:]
         for symbol in symbolslist:
-            tds = symbol.getchildren()   
+            tds = symbol.getchildren()
             sd = {'symbol': tds[0].text,
                   'name':tds[1].getchildren()[0].text,
                   'sector':tds[2].text}
@@ -250,6 +250,7 @@ class DatabaseDailyPrices(Database):
     def get_prices_df(self,ticker, date_start, date_end):
         try:
             cotation_data = DataReader(ticker,  "yahoo", date_start, date_end)
+            cotation_data = cotation_data[cotation_data.Volume != 0] # on ne prend pas les jours feriés p.ex 01/01
         except Exception as e:
             raise ErrorInternetConnexion('yahoo DataReader',  e)
         return cotation_data
@@ -317,7 +318,7 @@ class DatabaseIntradayPrices(Database):
                 line = line.decode('utf-8')
                 p = line.strip().split(',')
                 print(ticker)
-                cotation_data.append((ticker,p[0],datetime.fromtimestamp(int(p[0])).strftime('%Y-%m-%d %H:%M'),p[4],p[2],p[3],p[1],p[5]))
+                if p[5] != 0: cotation_data.append((ticker,p[0],datetime.fromtimestamp(int(p[0])).strftime('%Y-%m-%d %H:%M'),p[4],p[2],p[3],p[1],p[5]))
         except Exception as e:
             raise ErrorInternetConnexion('yahoo acces',  e)
         return cotation_data
@@ -356,15 +357,13 @@ if __name__=="__main__":
     #DailyPrices.affichage()
     #DailyPrices.update_prices()
     #DailyPrices.affichage()
-#    IntradayPrices = DatabaseIntradayPrices(base)
-#    IntradayPrices.new()
-#    #Intraday.obtain_tickers()
-#    IntradayPrices.tickers=[(1,'BNP','.PA')]
-#    IntradayPrices.get_prices()
-#    IntradayPrices.affichage()
-
-    
-    
+    IntradayPrices = DatabaseIntradayPrices(base)
+    IntradayPrices.new()
+    #Intraday.obtain_tickers()
+    IntradayPrices.tickers=[(1,'BNP','.PA')]
+    IntradayPrices.get_prices()
+    IntradayPrices.affichage()
+       
     
 
     
