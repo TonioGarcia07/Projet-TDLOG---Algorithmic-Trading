@@ -21,23 +21,23 @@ if __name__=="__main__":
     Trivial = queue.Queue()
     carnet_ordres = queue.Queue()
     initial_capital = 10000
-    vitesse = 0.1
+    vitesse = 0.01
     
     DailyPrices = DatabaseDailyPrices(base)
-    DailyPrices.new()
+#    DailyPrices.new()
     DailyPrices.tickers=[(1,'BNP','.PA')]#,(2,'GSZ','.PA'),(3,'EDF','.PA')]
-    DailyPrices.get_prices()
-    DailyPrices.update_prices()
+#    DailyPrices.get_prices()
+#    DailyPrices.update_prices()
     
     
     
-    DataManager1 = SQLDataManagerBacktest(Trivial,DailyPrices,tickers,datetime(2014, 1, 1),datetime(2014, 2, 20))
+    DataManager1 = SQLDataManagerBacktest(Trivial,DailyPrices,tickers,datetime(2009,5, 2),datetime(2010, 8, 30))
     DataManager1.market()
     
     DataStorage1 = DataStorage(tickers)
     
 #    Strategy1 = BuyandHoldStrategy(DataManager1,DataStorage1,Trivial)
-    Strategy1 = MovingAverageStrategy(DataManager1,DataStorage1,Trivial,5,10)
+    Strategy1 = MovingAverageStrategy(DataManager1,DataStorage1,Trivial,6,20)
     
     Portfolio1 = MovAvePortfolio(DataStorage1,Trivial,initial_capital,carnet_ordres)
     
@@ -55,15 +55,17 @@ if __name__=="__main__":
             else:
                 if event is not None:
                     if event.type == 'DATA':
-                        print(event)
-                        for ticker in tickers:
-                            print(DataManager1.get_last_ticker(ticker))
+#                        print(event)
+#                        for ticker in tickers:
+#                            print(DataManager1.get_last_ticker(ticker))
                         
                         Strategy1.generate_trade_signal(event)
                         
                         while True:
                             try:
                                 ordre = carnet_ordres.get(False)
+                                print(ordre)
+                                
                             except:
                                 break
                             else:
@@ -78,13 +80,14 @@ if __name__=="__main__":
         time.sleep(vitesse)
     
     
-    for ticker in DataStorage1.info.keys():
-        print(ticker)
-        for (label,values) in DataStorage1.info[ticker].items():
-            print(label)
-            for value in values:
-                print(value)
-    
+#    for ticker in DataStorage1.info.keys():
+#        print(ticker)
+#        for (label,values) in DataStorage1.info[ticker].items():
+#            if label in set(['Close','Quantity','Fix_Value','Trade','Market_Value','Value','MtM','Cash','Portfolio_Value']):
+#                print(label)
+#                for value in values:
+#                    print(value)
+#    
 
         
     
