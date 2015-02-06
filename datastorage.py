@@ -24,13 +24,11 @@ class DataStorage():
         self.info[ticker]['Date'].append(bar[0][0])
         for i in range(1,7):
             self.info[ticker][self.bar_labels[i]].append(bar[0][1][i-1])        
-    
-    def signal_info_stocking(self,ticker,signal):
-        self.info[ticker]['Trade'].append(signal)
-    
-    def info_stocking(self,ticker,information):
-        for (label,value) in information:
-            self.info[ticker][label].append(value)
+       
+    def info_stocking(self,information):
+        for ticker in self.ticker_list:
+            for (label,value) in information:
+                self.info[ticker][label].append(value)
 
     
      

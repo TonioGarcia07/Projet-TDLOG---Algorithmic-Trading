@@ -101,20 +101,4 @@ class MovingAverageStrategy(Strategy):
 
               
     
-
-        
-
-                
-
-
-
-
-
-
-
-
-
-
-
-
-       
+    
