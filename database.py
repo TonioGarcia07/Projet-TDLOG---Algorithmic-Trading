@@ -11,7 +11,8 @@ from urllib.request import urlopen
 import pandas as pd
 from pandas.lib import Timestamp
 
-
+from multiprocessing import Pool
+from multiprocessing import cpu_count
 
 class ErrorDatabaseConnexion(Exception):
     def __init__(self, base, msg, table= 'Not specified' ):
@@ -255,14 +256,31 @@ class DatabaseDailyPrices(Database):
             cotation_data = pd.DataFrame(index=['Date'],columns=[ 'Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close', 'ticker'])
 #            raise ErrorInternetConnexion('yahoo DataReader',  e)
         return cotation_data
+
+    def multi_get_prices(self,ticker):
+        (symbol_id, symbol ,suffix) = ticker
+        cotation_data = self.get_prices_df(symbol+suffix, self.start_date, self.end_date)
+        print(cotation_data)
+        print(cotation_data.index)
+        try:
+            self.connexion()
+            cotation_data['ticker']=symbol+suffix
+            cotation_data.to_sql('daily_prices',self.con,if_exists='append')
+        except sqlite3.Error as e:
+            raise ErrorDatabaseConnexion(self.base, e, self.table)
+        finally:
+            self.deconnexion()
     
     def get_prices(self,date_start=datetime(2000,1,1), date_end=datetime(2014,12,31)):
-        #multiprocessing
+        self.start_date = date_start
+        self.end_date = date_end
+        pool = Pool(cpu_count())
+        pool.map(self.multi_get_prices,self.tickers)
+        pool.close()
+    
+    def get_prices_old(self,date_start=datetime(2000,1,1), date_end=datetime(2014,12,31)):    
         for (symbol_id, symbol ,suffix) in self.tickers:
-            #print(symbol_id,symbol+suffix)
             cotation_data = self.get_prices_df(symbol+suffix, date_start, date_end)
-            print(cotation_data)
-            print(cotation_data.index)
             try:
                 self.connexion()
                 cotation_data['ticker']=symbol+suffix
@@ -274,7 +292,6 @@ class DatabaseDailyPrices(Database):
                 
     def update_prices(self,date_start=datetime(2014,12,24), date_end=datetime.today()):
         for (symbol_id, symbol ,suffix) in self.tickers:
-            #print(symbol_id,symbol+suffix)
             cotation_df = self.get_prices_df(symbol+suffix, date_start, date_end)
             cotation_df['ticker']=symbol+suffix
             cotation_df['Volume'] = cotation_df['Volume'].astype(float)
@@ -318,15 +335,25 @@ class DatabaseIntradayPrices(Database):
             for line in yf_data:
                 line = line.decode('utf-8')
                 p = line.strip().split(',')
-                if p[5] != 0: cotation_data.append((ticker,p[0],datetime.fromtimestamp(int(p[0])).strftime('%Y-%m-%d %H:%M'),p[4],p[2],p[3],p[1],p[5]))
+                if abs(int(p[5])) >=0.5: cotation_data.append((ticker,p[0],datetime.fromtimestamp(int(p[0])).strftime('%Y-%m-%d %H:%M'),p[4],p[2],p[3],p[1],p[5]))
         except Exception as e:
             raise ErrorInternetConnexion('yahoo acces',  e)
         return cotation_data
     
+    def multi_get_prices(self,ticker):
+        (symbol_id, symbol ,suffix) = ticker
+        cotation_list = self.get_prices_list(symbol+suffix,100)
+        command_str = "(ticker,Date_timestamp,Date , Open, High, Low, Close, Volume)"
+        self.insert( self.table, command_str, cotation_list, 'no')
+    
     def get_prices(self,days=100):
-        #multiprocessing
+        pool = Pool(cpu_count())
+        pool.map(self.multi_get_prices,self.tickers)
+        pool.close()
+        pool.join()
+        
+    def get_prices_old(self,days=100):
         for (symbol_id, symbol ,suffix) in self.tickers:
-            #print(symbol_id,symbol+suffix)
             cotation_list = self.get_prices_list(symbol+suffix,days)
             command_str = "(ticker,Date_timestamp,Date , Open, High, Low, Close, Volume)"
             self.insert( self.table, command_str, cotation_list, 'no')
@@ -337,3 +364,4 @@ class DatabaseIntradayPrices(Database):
     def affichage(self):
         self.printing(self.table)
       
+
