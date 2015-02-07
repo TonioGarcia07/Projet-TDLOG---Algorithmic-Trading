@@ -44,7 +44,10 @@ class Portfolio():
         self.datastorage.info['Portfolio']['Cash'].append(self.cash)
         self.datastorage.info['Portfolio']['Portfolio_Value'].append(self.cash + sum_Value)
         self.datastorage.info['Portfolio']['MtM'].append(sum_MtM)
-
+        
+        print(self.datastorage.info[ticker]['Quantity'][-1])
+        print(self.datastorage.info['Portfolio']['Portfolio_Value'][-1])
+        
     def treat_TradeEvent(self,event):
         if event.type == 'TRADE':
             self.generate_order(event)
@@ -55,26 +58,23 @@ class Portfolio():
         order_type = ordre.order_type
         quantity = ordre.quantity
         order_price = ordre.order_price
-        direction = ordre.direction
         close = ordre.close_old_position
+        sign = ordre.sign
         
         old_price = self.dict_contractprices[ticker] 
         
-        if direction == 'BUY': sign = 1
-        elif direction == 'SELL': sign = -1
-        
-        print(self.cash)
         if order_type == 'LMT':
             if self.datastorage.info[ticker]['Low'][-1]<=order_price <=self.datastorage.info[ticker]['High'][-1]:
                 self.dict_quantities[ticker] = self.dict_quantities[ticker] + quantity
                 self.dict_contractprices[ticker] = order_price
                 self.cash = self.cash - (close * abs(self.dict_contractprices[ticker] * quantity)) + ((close -1)/(-1) * (sign + 1)/2 * (quantity * (old_price - self.dict_contractprices[ticker])))
+                print('Operation executed')
         elif order_type == 'MKT':
             self.dict_quantities[ticker] = self.dict_quantities[ticker] + quantity
-            self.dict_contractprices[ticker] = self.datastorage.info[ticker]['Open'][-1] + close * sign * 0.0025 * self.datastorage.info[ticker]['Open'][-1]
+            self.dict_contractprices[ticker] = round(self.datastorage.info[ticker]['Open'][-1] + close * sign * 0.0025 * self.datastorage.info[ticker]['Open'][-1],3)
             self.cash = self.cash - (close * abs(self.dict_contractprices[ticker] * quantity)) + ((close -1)/(-1) * (sign + 1)/2 * (quantity * (old_price - self.dict_contractprices[ticker])))
-        print(- (close * abs(self.dict_contractprices[ticker] * quantity)))
-        print(self.cash)  
+            print('Operation executed')
+        
         self.provisional_cash = self.cash
    
     def treat_OrderEvent(self,ordre):
@@ -92,25 +92,31 @@ class MovAvePortfolio(Portfolio):
     def generate_order(self,tradeEvent):
         ticker = tradeEvent.ticker
         direction = tradeEvent.direction
+        old_quantity = self.dict_quantities[ticker]
         
-        if direction == 'BUY': 
+        if direction =='OUT':
+            quantity = -old_quantity
+            sign = copysign(1,quantity)
+        elif direction == 'BUY': 
             sign = 1
         elif direction == 'SELL': 
             sign = -1
-            
+                    
         order_type = 'LMT' # 'MKT' 'LMT'
-        order_price = self.datastorage.info[ticker]['Close'][-1] + sign *  0.0025 * self.datastorage.info[ticker]['Close'][-1]
-        
-        old_quantity = self.dict_quantities[ticker]
-        
+        order_price =round( self.datastorage.info[ticker]['Close'][-1] + sign *  0.0025 * self.datastorage.info[ticker]['Close'][-1],3)
+               
         if  old_quantity == 0:
             quantity = sign * floor(self.provisional_cash*0.1/order_price)
-            self.carnet_ordres.put(OrderEvent(ticker,order_type,quantity,order_price,direction,1))
+            self.carnet_ordres.put(OrderEvent(ticker,order_type,quantity,order_price,direction,sign,1))
         elif old_quantity != 0:
-            quantity = -old_quantity
-            self.carnet_ordres.put(OrderEvent(ticker,order_type,quantity,order_price,direction,-1))
-            quantity = sign * floor(self.provisional_cash*0.1/order_price)
-            self.carnet_ordres.put(OrderEvent(ticker,order_type,quantity,order_price,direction,1))
+            if direction =='OUT':
+                order_type = 'MKT'
+                self.carnet_ordres.put(OrderEvent(ticker,order_type,quantity,order_price,direction,sign,-1))
+            else:
+                quantity = -old_quantity
+                self.carnet_ordres.put(OrderEvent(ticker,order_type,quantity,order_price,direction,sign,-1))
+                quantity = sign * floor(self.provisional_cash*0.1/order_price)
+                self.carnet_ordres.put(OrderEvent(ticker,order_type,quantity,order_price,direction,sign,1))
             
         self.provisional_cash = self.provisional_cash - abs(quantity * order_price)
 

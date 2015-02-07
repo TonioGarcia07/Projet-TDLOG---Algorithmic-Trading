@@ -8,7 +8,7 @@ from database import DatabaseDailyPrices
 from datetime import datetime
 from datamanager import SQLDataManagerBacktest
 from datastorage import DataStorage
-from strategy import BuyandHoldStrategy, MovingAverageStrategy
+from strategy import BuyandHoldStrategy, MovingAverageStrategy, MovingAverage_1_Strategy
 from portfolio import MovAvePortfolio
 import queue
 import time
@@ -31,13 +31,14 @@ if __name__=="__main__":
     
     
     
-    DataManager1 = SQLDataManagerBacktest(Trivial,DailyPrices,tickers,datetime(2009,5, 2),datetime(2010, 8, 30))
+    DataManager1 = SQLDataManagerBacktest(Trivial,DailyPrices,tickers,datetime(2012,5, 2),datetime(2013, 6, 30))
     DataManager1.market()
     
     DataStorage1 = DataStorage(tickers)
     
 #    Strategy1 = BuyandHoldStrategy(DataManager1,DataStorage1,Trivial)
-    Strategy1 = MovingAverageStrategy(DataManager1,DataStorage1,Trivial,6,20)
+#    Strategy1 = MovingAverageStrategy(DataManager1,DataStorage1,Trivial,10,60)
+    Strategy1 = MovingAverage_1_Strategy(DataManager1,DataStorage1,Trivial,5,20)
     
     Portfolio1 = MovAvePortfolio(DataStorage1,Trivial,initial_capital,carnet_ordres)
     

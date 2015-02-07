@@ -252,10 +252,11 @@ class DatabaseDailyPrices(Database):
             cotation_data = DataReader(ticker,  "yahoo", date_start, date_end)
             cotation_data = cotation_data[cotation_data.Volume != 0] # on ne prend pas les jours feriés p.ex 01/01
         except Exception as e:
-            raise ErrorInternetConnexion('yahoo DataReader',  e)
+            cotation_data = pd.DataFrame(index=['Date'],columns=[ 'Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close', 'ticker'])
+#            raise ErrorInternetConnexion('yahoo DataReader',  e)
         return cotation_data
     
-    def get_prices(self,date_start=datetime(2009,1,1), date_end=datetime(2014,12,1)):
+    def get_prices(self,date_start=datetime(2000,1,1), date_end=datetime(2014,12,31)):
         #multiprocessing
         for (symbol_id, symbol ,suffix) in self.tickers:
             #print(symbol_id,symbol+suffix)
@@ -317,7 +318,6 @@ class DatabaseIntradayPrices(Database):
             for line in yf_data:
                 line = line.decode('utf-8')
                 p = line.strip().split(',')
-                print(ticker)
                 if p[5] != 0: cotation_data.append((ticker,p[0],datetime.fromtimestamp(int(p[0])).strftime('%Y-%m-%d %H:%M'),p[4],p[2],p[3],p[1],p[5]))
         except Exception as e:
             raise ErrorInternetConnexion('yahoo acces',  e)

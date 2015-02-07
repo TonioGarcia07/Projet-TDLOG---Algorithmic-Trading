@@ -57,7 +57,7 @@ class OrderEvent(Event):
     et qui est la modification du signal TradeEvent pour l'adapté
     au niveau de risque et au portefeuille
     """
-    def __init__(self,ticker,order_type,quantity,order_price,direction,close_old_position=1):
+    def __init__(self,ticker,order_type,quantity,order_price,direction,sign,close_old_position=1):
         """
         Parametres:
         ticker: symbol+suffix de l'actif
@@ -70,9 +70,10 @@ class OrderEvent(Event):
         self.ticker = ticker
         self.order_type = order_type
         self.quantity = quantity
-        self.close_old_position = close_old_position
         self.order_price = order_price
         self.direction = direction
+        self.sign = sign
+        self.close_old_position = close_old_position
     
     def __str__(self):
         return "{} signal generée: {} {} {} {} {}".format(self.type, 
