@@ -45,8 +45,8 @@ class Portfolio():
         self.datastorage.info['Portfolio']['Portfolio_Value'].append(self.cash + sum_Value)
         self.datastorage.info['Portfolio']['MtM'].append(sum_MtM)
         
-        print(self.datastorage.info[ticker]['Quantity'][-1])
-        print(self.datastorage.info['Portfolio']['Portfolio_Value'][-1])
+        #print(self.datastorage.info[ticker]['Quantity'][-1])
+        #print(self.datastorage.info['Portfolio']['Portfolio_Value'][-1])
         
     def treat_TradeEvent(self,event):
         if event.type == 'TRADE':
