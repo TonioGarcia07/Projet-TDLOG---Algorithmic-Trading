@@ -331,7 +331,6 @@ class Information():
         self.Strategy1 = MovingAverage_1_Strategy(self.DataManager1,self.DataStorage1,self.QueueEvents,5,20)
 
         self.Portfolio1 = MovAvePortfolio(self.DataStorage1,self.QueueEvents,self.initial_capital,self.carnet_ordres)
-    
         
 
     def loadChart(self,action_str):
